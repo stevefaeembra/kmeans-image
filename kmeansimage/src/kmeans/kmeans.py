@@ -21,16 +21,42 @@ from random import randint
 import math
 
 class KMeans(object):
+    '''
+    Does K-Means image analysis on an image 
+    '''
     
-    def __init__(self,iterations=12):
+    def __init__(self,iterations=12,useLUT=True):
         self._reset()
         self.iterations = iterations
+        self.useLUT = useLUT
+        if self.useLUT:
+            self._LUT()
         
     def _reset(self):
         self.pixels=[] # list of (r, g, b, centroid)
         self.clusters={} # key=centroid #, value = list of (r,g,b)
         self.rgb={} # key=(r,g,b), value = centroid #
         self.means=[] # list of N centroids in (r,g,b) format 
+        
+
+    def _LUT(self):
+        ''' 
+        sets up a pre-computed look up table for euclidian distances.
+        max distance is sqrt(256*256*256) or 16M possible values.
+        although it can take a while to set up, the performance gains on images larger than
+        thumbnails make this setup time worthwhile, especially if processing lots of images
+        '''
+        print "Setting up euclidian distance LUT"
+        self.squareofdiffs={} # key=(r1-r2,g1-g2,b1-b2)
+        self.distances={}
+        for x in range(0,256):
+            for y in range(0,256):
+                self.squareofdiffs[(x,y)]=math.pow(abs(x-y),2.0)
+        for rdiff in range(0,256):
+            for gdiff in range(0,256):
+                for bdiff in range(0,256):
+                    self.distances[rdiff+gdiff+bdiff]=math.sqrt((rdiff*rdiff)+(bdiff*bdiff)+(gdiff*gdiff))
+        print "Set up euclidian distance LUT"
         
     def process(self,input_file_like_object,output_file_like_object,centroids=8):
         self._reset()
@@ -102,8 +128,8 @@ class KMeans(object):
         ''' assign each centroid to a randomly chosen colour present in the image '''
         w,h = self.im.size
         for x in range(0,self.numbercentroids):
-            randx = randint(0,w)
-            randy = randint(0,h)
+            randx = randint(0,w-1)
+            randy = randint(0,h-1)
             if self.isRGBA:
                 r,g,b,a = self.im.getpixel((randx,randy))
             else:
@@ -121,12 +147,20 @@ class KMeans(object):
             r,g,b, centroid = pix
             mindist = 99999999999999999
             minix = 0
-            for y in range(0,self.numbercentroids):
-                rc,gc,bc=self.means[y]
-                dist = math.sqrt(math.pow(r-rc,2.0)+math.pow(g-gc,2.0)+math.pow(b-bc,2.0))
-                if (dist<mindist):
-                    mindist = dist
-                    minix = y
+            if self.useLUT:
+                for y in range(0,self.numbercentroids):
+                    rc,gc,bc=self.means[y]
+                    dist=self.distances[abs(r-rc)+abs(g-gc)+abs(b-bc)]
+                    if (dist<mindist):
+                        mindist = dist
+                        minix = y
+            else:
+                for y in range(0,self.numbercentroids):
+                    rc,gc,bc=self.means[y]
+                    dist = math.sqrt(math.pow(r-rc,2.0)+math.pow(g-gc,2.0)+math.pow(b-bc,2.0))
+                    if (dist<mindist):
+                        mindist = dist
+                        minix = y
             #print "Reassigning (%d,%d,%d) to centroid %d" % (r,g,b,minix)
             self.newpixels.append((r,g,b,minix))
             self.rgb[(r,g,b)]=minix

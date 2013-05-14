@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
 
 
     def setUp(self):
-        self.km = KMeans()
+        self.km = KMeans(iterations=10,useLUT=True)
 
     def testIsRGBA(self):
         fi=open("Mona_Lisa.jpg","r")
@@ -33,9 +33,9 @@ class Test(unittest.TestCase):
         assert not isRGBA
         
     def testProcessFile(self):
-        fi=open("Mona_Lisa.jpg","r")
+        fi=open("rusty door.jpg","r")
         fo=open("result.jpg","w")
-        self.km.process(fi,fo)
+        self.km.process(fi,fo,centroids=10)
         fo.close()
         fi.close()
         
